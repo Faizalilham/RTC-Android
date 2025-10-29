@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "535246368643",
+    "firebase_url": "https://rtc-android-d2e51-default-rtdb.firebaseio.com",
+    "project_id": "rtc-android-d2e51",
+    "storage_bucket": "rtc-android-d2e51.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535246368643:android:e18e614757abb8b70a90b6",
+        "android_client_info": {
+          "package_name": "dev.faizal.rtcandroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMQArjw38q0WscVR_E6iIwniCpcCwbxSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535246368643:android:6f3019431c36079d0a90b6",
+        "android_client_info": {
+          "package_name": "dev.faizal.zycall"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMQArjw38q0WscVR_E6iIwniCpcCwbxSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
