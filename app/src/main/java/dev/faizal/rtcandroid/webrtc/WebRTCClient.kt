@@ -31,6 +31,7 @@
                 .setUsername("000000002077020938")
                 .setPassword("q5WiEwLFVKFkhran4WUpdWfjBnA=").createIceServer()
         )
+
         private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
         private val localAudioSource by lazy { peerConnectionFactory.createAudioSource(MediaConstraints())}
         private val videoCapturer = getVideoCapturer(context)
