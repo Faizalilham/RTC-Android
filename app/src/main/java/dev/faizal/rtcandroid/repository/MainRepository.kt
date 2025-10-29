@@ -160,39 +160,94 @@ class MainRepository @Inject constructor(
             }
 
             override fun onRemoteVideoTrackReceived(videoTrack: VideoTrack) {
-                Log.d(TAG, "🎥 REMOTE VIDEO TRACK RECEIVED - Setting up...")
+                Log.d(TAG, "========== DIAGNOSTIC TEST START ==========")
 
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        if (remoteView == null) {
-                            Log.w(TAG, "Remote view not ready, storing track")
-                            pendingRemoteVideoTrack = videoTrack
-                            return@post
-                        }
+                // TEST 1: Cek track properties
+                Log.d(TAG, "Track ID: ${videoTrack.id()}")
+                Log.d(TAG, "Track Kind: ${videoTrack.kind()}")
+                Log.d(TAG, "Track State: ${videoTrack.state()}")
+                Log.d(TAG, "Track Enabled: ${videoTrack.enabled()}")
 
-                        Log.d(TAG, "Adding video sink to remote view...")
+                // TEST 2: Enable track explicitly
+                videoTrack.setEnabled(true)
+                Log.d(TAG, "Track enabled: ${videoTrack.enabled()}")
 
-                        // Clear any existing track first
-                        remoteView?.let { view ->
-                            // Remove any existing sinks
-                            videoTrack.removeSink(view)
+                // TEST 3: Cek remote view
+                Log.d(TAG, "Remote View: $remoteView")
+                Log.d(TAG, "Remote View null? ${remoteView == null}")
 
-                            // Add the new sink
-                            videoTrack.setEnabled(true)
-                            videoTrack.addSink(view)
-
-                            // Force the view to update
-                            view.visibility = android.view.View.VISIBLE
-                            view.requestLayout()
-                            view.invalidate()
-
-                            Log.d(TAG, "✅ REMOTE VIDEO TRACK CONNECTED TO VIEW")
-                        }
-
-                    } catch (e: Exception) {
-                        Log.e(TAG, "❌ ERROR setting up remote video track", e)
-                    }
+                if (remoteView == null) {
+                    Log.e(TAG, "❌ Remote view is NULL!")
+                    pendingRemoteVideoTrack = videoTrack
+                    return
                 }
+
+                // TEST 4: Cek view properties
+                Log.d(TAG, "View Width: ${remoteView?.width}")
+                Log.d(TAG, "View Height: ${remoteView?.height}")
+                Log.d(TAG, "View Visibility: ${remoteView?.visibility}")
+                Log.d(TAG, "View Parent: ${remoteView?.parent}")
+
+                // TEST 5: Try adding sink with multiple attempts
+                Handler(Looper.getMainLooper()).post {
+                    var attempts = 0
+                    fun tryAddSink() {
+                        attempts++
+                        try {
+                            Log.d(TAG, "Attempt $attempts: Adding video sink...")
+
+                            // Clear any existing sinks first
+                            // (create a test sink to verify track is working)
+                            val testSink = object : VideoSink {
+                                override fun onFrame(frame: VideoFrame?) {
+                                    // If this gets called, track is definitely sending frames
+                                    Log.d(TAG, "🎬 VIDEO FRAME RECEIVED! Size: ${frame?.buffer?.width}x${frame?.buffer?.height}")
+                                }
+                            }
+
+                            videoTrack.addSink(testSink)
+                            Log.d(TAG, "✅ Test sink added - waiting for frames...")
+
+                            // Wait a bit then add to real view
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                try {
+                                    videoTrack.removeSink(testSink)
+                                    videoTrack.addSink(remoteView)
+
+                                    remoteView?.visibility = android.view.View.VISIBLE
+                                    remoteView?.requestLayout()
+                                    remoteView?.invalidate()
+
+                                    Log.d(TAG, "✅ SUCCESS: Video sink added to remote view!")
+
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "❌ Error adding to remote view: ${e.message}", e)
+
+                                    if (attempts < 3) {
+                                        Log.d(TAG, "Retrying in 500ms...")
+                                        Handler(Looper.getMainLooper()).postDelayed({
+                                            tryAddSink()
+                                        }, 500)
+                                    }
+                                }
+                            }, 1000)
+
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ Attempt $attempts failed: ${e.message}", e)
+
+                            if (attempts < 3) {
+                                Log.d(TAG, "Retrying in 500ms...")
+                                Handler(Looper.getMainLooper()).postDelayed({
+                                    tryAddSink()
+                                }, 500)
+                            }
+                        }
+                    }
+
+                    tryAddSink()
+                }
+
+                Log.d(TAG, "========== DIAGNOSTIC TEST END ==========")
             }
 
             override fun onRemoteAudioTrackReceived(audioTrack: AudioTrack) {
@@ -216,26 +271,49 @@ class MainRepository @Inject constructor(
     }
 
     fun initRemoteSurfaceView(view: SurfaceViewRenderer) {
-        webRTCClient.initRemoteSurfaceView(view)
-        this.remoteView = view
-        Log.d(TAG, "Remote surface view initialized: $view")
+        Log.d(TAG, "========== initRemoteSurfaceView START ==========")
 
-        // If we received remote video track before view was ready, add it now
-        pendingRemoteVideoTrack?.let { videoTrack ->
-            Log.d(TAG, "⏰ Found pending remote video track, adding it now...")
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    videoTrack.addSink(view)
-                    Log.d(TAG, "✅ SUCCESS: Pending video track added to remote view!")
-                    view.visibility = android.view.View.VISIBLE
-                    view.requestLayout()
-                    view.invalidate()
-                    pendingRemoteVideoTrack = null
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Error adding pending video track", e)
-                }
-            }, 100) // Small delay to ensure view is ready
+        // Clean up if view was already initialized
+        this.remoteView?.let { oldView ->
+            try {
+                oldView.release()
+                Log.d(TAG, "Released old remote view")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing old view: $e")
+            }
         }
+
+        this.remoteView = view
+
+        // Re-initialize view di UI thread
+        Handler(Looper.getMainLooper()).post {
+            webRTCClient.initRemoteSurfaceView(view)
+            Log.d(TAG, "WebRTC remote view initialized")
+
+            // Jika ada pending track, tambahkan sekarang
+            pendingRemoteVideoTrack?.let { videoTrack ->
+                Log.d(TAG, "⏰ Processing pending video track...")
+
+                Handler(Looper.getMainLooper()).postDelayed({
+                    try {
+                        Log.d(TAG, "Adding pending track to view...")
+                        videoTrack.setEnabled(true)
+                        videoTrack.addSink(view)
+
+                        view.visibility = android.view.View.VISIBLE
+                        view.requestLayout()
+
+                        Log.d(TAG, "✅ Pending track added successfully!")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error adding pending track", e)
+                        e.printStackTrace()
+                    }
+                }, 500) // Delay untuk memastikan view fully ready
+            }
+        }
+
+        Log.d(TAG, "Remote surface view reference stored: $view")
+        Log.d(TAG, "========== initRemoteSurfaceView END ==========")
     }
 
     fun startCall() {

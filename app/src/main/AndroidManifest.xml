@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.CAPTURE_VIDEO_OUTPUT"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".utils.MyApplication"
@@ -45,7 +47,6 @@
         <receiver android:name=".service.MainServiceReceiver"/>
         <service
             android:name=".service.MainService"
-            android:exported="false"
             android:foregroundServiceType="camera|microphone|mediaProjection"/>
     </application>
 

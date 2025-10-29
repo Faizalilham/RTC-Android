@@ -202,36 +202,41 @@
 
             this.remoteSurfaceView = view
 
-            // PENTING: Pastikan view di-init dengan parameter yang benar
-            view.run {
-                // JANGAN set mirror untuk remote view
-                setMirror(false)
-
-                // Enable hardware scaler
-                setEnableHardwareScaler(true)
-
-                // CRITICAL: Remote view harus di BAWAH local view
-                setZOrderMediaOverlay(false)
-                setZOrderOnTop(false)
-
-                init(eglBaseContext, object : RendererCommon.RendererEvents {
-                    override fun onFirstFrameRendered() {
-                        Log.d("WebRTCClient", "✅ REMOTE VIEW: First frame rendered!")
+            try {
+                view.run {
+                    // CRITICAL: Release dulu jika sudah di-init sebelumnya
+                    try {
+                        release()
+                        Log.d("WebRTCClient", "Released previous init")
+                    } catch (e: Exception) {
+                        // First init, no problem
                     }
 
-                    override fun onFrameResolutionChanged(width: Int, height: Int, rotation: Int) {
-                        Log.d("WebRTCClient", "Remote view resolution: ${width}x${height}, rotation: $rotation")
-                    }
-                })
+                    // Set properties SEBELUM init
+                    setMirror(false)
+                    setEnableHardwareScaler(true)
 
-                // Set visibility
-                visibility = android.view.View.VISIBLE
+                    // PENTING: Remote view HARUS di bawah
+                    setZOrderMediaOverlay(false)
+                    setZOrderOnTop(false)
 
-                Log.d("WebRTCClient", "Remote view initialized:")
-                Log.d("WebRTCClient", "  - Width: ${view.width}")
-                Log.d("WebRTCClient", "  - Height: ${view.height}")
-                Log.d("WebRTCClient", "  - Visibility: ${view.visibility}")
-                Log.d("WebRTCClient", "  - Is hardware accelerated: ${view.isHardwareAccelerated}")
+                    // Init dengan EGL context
+                    init(eglBaseContext, null)
+
+                    // Set visible
+                    visibility = android.view.View.VISIBLE
+
+                    Log.d("WebRTCClient", "Remote view initialized successfully:")
+                    Log.d("WebRTCClient", "  - Width: ${view.width}, Height: ${view.height}")
+                    Log.d("WebRTCClient", "  - Visibility: ${view.visibility}")
+                    Log.d("WebRTCClient", "  - HW Accelerated: ${view.isHardwareAccelerated}")
+                }
+
+                Log.d("WebRTCClient", "✅ Remote view setup complete")
+
+            } catch (e: Exception) {
+                Log.e("WebRTCClient", "❌ Error initializing remote view", e)
+                e.printStackTrace()
             }
 
             Log.d("WebRTCClient", "========== initRemoteSurfaceView END ==========")
