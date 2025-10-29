@@ -26,10 +26,15 @@
         private val eglBaseContext = EglBase.create().eglBaseContext
         private val peerConnectionFactory by lazy { createPeerConnectionFactory() }
         private var peerConnection: PeerConnection? = null
+//        private val iceServer = listOf(
+//            PeerConnection.IceServer.builder("turn:relay1.expressturn.com:3480")
+//                .setUsername("000000002077020938")
+//                .setPassword("q5WiEwLFVKFkhran4WUpdWfjBnA=").createIceServer()
+//        )
         private val iceServer = listOf(
-            PeerConnection.IceServer.builder("turn:relay1.expressturn.com:3480")
-                .setUsername("000000002077020938")
-                .setPassword("q5WiEwLFVKFkhran4WUpdWfjBnA=").createIceServer()
+            PeerConnection.IceServer.builder("turn:a.relay.metered.ca:443?transport=tcp")
+                .setUsername("83eebabf8b4cce9d5dbcb649")
+                .setPassword("2D7JvfkOQtBdYW3R").createIceServer()
         )
 
         private val localVideoSource by lazy { peerConnectionFactory.createVideoSource(false) }
@@ -169,14 +174,6 @@
             videoCapturer.switchCamera(null)
         }
 
-        fun toggleAudio(shouldBeMuted:Boolean){
-            if (shouldBeMuted){
-                localAudioTrack?.setEnabled(false)
-            }else{
-                localAudioTrack?.setEnabled(true)
-            }
-        }
-
         fun toggleVideo(shouldBeMuted: Boolean){
             try {
                 if (shouldBeMuted){
@@ -255,23 +252,59 @@
             Log.d("WebRTCClient", "Local view initialized with z-order on top")
             startLocalStreaming(localView, isVideoCall)
         }
+        // Di WebRTCClient.kt
+
         private fun startLocalStreaming(localView: SurfaceViewRenderer, isVideoCall: Boolean) {
             localStream = peerConnectionFactory.createLocalMediaStream(localStreamId)
 
-            if (isVideoCall){
-                startCapturingCamera(localView)
+            // Create audio track with proper constraints
+            val audioConstraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("googEchoCancellation", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googAutoGainControl", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("googNoiseSuppression", "true"))
             }
 
-            // Create audio track
-            localAudioTrack = peerConnectionFactory.createAudioTrack(localTrackId+"_audio",localAudioSource)
+            val audioSource = peerConnectionFactory.createAudioSource(audioConstraints)
+            localAudioTrack = peerConnectionFactory.createAudioTrack(localTrackId + "_audio", audioSource)
+
+            // ⭐ CRITICAL: ENABLE audio track dari awal!
+            localAudioTrack?.setEnabled(true)
+
+            Log.d("WebRTCClient", "🔊 Audio track created:")
+            Log.d("WebRTCClient", "  - ID: ${localAudioTrack?.id()}")
+            Log.d("WebRTCClient", "  - Enabled: ${localAudioTrack?.enabled()}")
+            Log.d("WebRTCClient", "  - State: ${localAudioTrack?.state()}")
+
+            // Add to stream
             localStream?.addTrack(localAudioTrack)
 
-            // FIXED: Use addTrack instead of addStream
+            // Add to peer connection
             localAudioTrack?.let { audioTrack ->
                 peerConnection?.addTrack(audioTrack, listOf(localStreamId))
+                Log.d("WebRTCClient", "✅ Audio track added to peer connection")
             }
 
-            // Video track will be added in startCapturingCamera if isVideoCall is true
+            // Video setup (if video call)
+            if (isVideoCall) {
+                startCapturingCamera(localView)
+            }
+        }
+
+        fun toggleAudio(shouldBeMuted: Boolean) {
+            Log.d("WebRTCClient", "========== TOGGLE AUDIO ==========")
+            Log.d("WebRTCClient", "Request: shouldBeMuted = $shouldBeMuted")
+            Log.d("WebRTCClient", "Before - Enabled: ${localAudioTrack?.enabled()}")
+
+            if (shouldBeMuted) {
+                localAudioTrack?.setEnabled(false)
+                Log.d("WebRTCClient", "🔇 Audio MUTED")
+            } else {
+                localAudioTrack?.setEnabled(true)
+                Log.d("WebRTCClient", "🔊 Audio UNMUTED")
+            }
+
+            Log.d("WebRTCClient", "After - Enabled: ${localAudioTrack?.enabled()}")
+            Log.d("WebRTCClient", "==================================")
         }
 
         private fun startCapturingCamera(localView: SurfaceViewRenderer){
